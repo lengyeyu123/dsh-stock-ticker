@@ -1,6 +1,6 @@
 {
   "name": "dsh-stock-ticker",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "DSH Desktop 自选股行情插件：侧栏实时报价卡片，点击查看分时图与柱状图（A股 / 港股 / 美股）",
   "type": "module",
   "icon": "icon.svg",
