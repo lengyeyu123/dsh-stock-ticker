@@ -1,7 +1,7 @@
 # dsh-stock-ticker
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/lengyeyu123/dsh-stock-ticker)](https://github.com/lengyeyu123/dsh-stock-ticker/releases)
+[![npm](https://img.shields.io/npm/v/dsh-stock-ticker.svg)](https://www.npmjs.com/package/dsh-stock-ticker)
 [![CI](https://github.com/lengyeyu123/dsh-stock-ticker/actions/workflows/ci.yml/badge.svg)](https://github.com/lengyeyu123/dsh-stock-ticker/actions/workflows/ci.yml)
 [![DSH](https://img.shields.io/badge/DSH-%E2%89%A50.2.1--rc.3-2f6bff)](https://github.com/anywhere-labs/dsh-desktop)
 
@@ -88,18 +88,24 @@ dsh-stock-ticker/
 
 ## 安装
 
-### 从 GitHub 安装（推荐）
+### 从 npm 安装（推荐）
+
+```bash
+dsh plugin --profile <profile-name> add dsh-stock-ticker
+```
+
+包地址：<https://www.npmjs.com/package/dsh-stock-ticker>
+
+装完重启 DSH Desktop（或重新加载当前工作配置），侧栏底部会出现「自选行情」按钮。
+
+### 从 GitHub 安装（跟最新代码）
 
 ```bash
 dsh plugin --profile <profile-name> add github:lengyeyu123/dsh-stock-ticker
 ```
 
 npm 装 git 依赖时会自动跑 `prepare`（类型检查 + 构建），不需要手动 build。
-
-装完重启 DSH Desktop（或重新加载当前工作配置），侧栏底部会出现「自选行情」按钮。
-
-> 插件只通过 GitHub 分发，不再发布到 npm。`0.1.0` 是最后一个 npm 版本，之后的更新都在
-> [Releases](https://github.com/lengyeyu123/dsh-stock-ticker/releases) 里，每个版本附一份打包好的 tarball，离线环境也能装。
+每个版本的 [Releases](https://github.com/lengyeyu123/dsh-stock-ticker/releases) 里也挂了打包好的 tarball，离线环境可以本地装。
 
 ### 本地开发
 
@@ -135,15 +141,17 @@ npm run clean       # 删掉 lib/
 | workflow | 触发 | 做什么 |
 | --- | --- | --- |
 | `ci.yml` | push / PR 到 `main` | Node 22 与 24 双版本跑类型检查 + 构建，并校验产物约定（`client.js` 必须是 `__ModuleLoader__` 闭包工厂、只能 `require` 冻结模块表里的依赖、类型声明要能对上 `exports`） |
-| `release.yml` | 推送 `v*` tag | 校验 tag 与 `package.json` 版本一致，跑类型检查 + 构建，打包 tarball 并建 GitHub Release |
+| `release.yml` | 推送 `v*` tag | 校验 tag 与 `package.json` 版本一致，跑类型检查 + 构建，发布到 npm（该版本已存在则跳过），再建 GitHub Release 并附 tarball |
 
-发版步骤：
+发布步骤：
 
-1. `npm version minor -m "chore: 发布 v%s"`（`patch` / `major` 同理）
-2. `git push --follow-tags`
-3. workflow 自动建 Release，附 tarball 和按 commit 生成的变更说明
+1. 仓库 Settings → Secrets and variables → Actions 里加 `NPM_TOKEN`
+   （npm 的 **Automation** token；Granular token 需要给这个包 read/write 权限）
+2. `npm version patch && git push --follow-tags`
+3. workflow 自动发布带 provenance 的包，并建 Release
 
-不需要配置任何 secret —— `GITHUB_TOKEN` 由 Actions 自带。想补发说明或改标题，直接在 Release 页编辑即可。
+> 不想维护 token 可以改用 npm 的 **Trusted Publishing**（OIDC）：在 npm 包设置里绑定本仓库和 `release.yml`，
+> 然后把 publish 步骤的 `NODE_AUTH_TOKEN` 删掉即可，workflow 已经带了 `id-token: write`。
 
 ## HTTP 接口
 

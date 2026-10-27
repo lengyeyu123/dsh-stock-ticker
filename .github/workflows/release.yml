@@ -1,7 +1,8 @@
-# 只发 GitHub Release，不再发布到 npm。
+# tag 触发：先发 npm，再建 GitHub Release。
 #
-# 触发：推送 v* tag → 校验版本 → 类型检查 + 构建 → 打包 tarball → 建 Release。
-# 不需要任何 secret，GITHUB_TOKEN 由 Actions 自动提供。
+# npm 认证二选一：
+#   1) 仓库 secret `NPM_TOKEN`（npm 的 Automation token）
+#   2) npm 后台配 Trusted Publishing（OIDC），然后把下面 publish 步骤的 NODE_AUTH_TOKEN 删掉
 name: Release
 
 on:
@@ -10,9 +11,10 @@ on:
 
 permissions:
   contents: write
+  id-token: write # provenance / trusted publishing 需要 OIDC
 
 jobs:
-  release:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,6 +22,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          registry-url: https://registry.npmjs.org
           cache: npm
 
       - name: 安装依赖
@@ -40,6 +43,19 @@ jobs:
         run: |
           npm run typecheck
           npm run build
+
+      - name: 发布到 npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          version=$(node -p "require('./package.json').version")
+          # 版本已在 registry 上就跳过，重跑 workflow 不会因为重复发布而失败
+          if npm view "dsh-stock-ticker@$version" version >/dev/null 2>&1; then
+            echo "dsh-stock-ticker@$version 已在 npm 上，跳过发布"
+          else
+            npm publish --provenance --access public
+          fi
 
       - name: 打包 tarball
         run: npm pack
