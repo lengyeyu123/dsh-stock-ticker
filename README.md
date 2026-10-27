@@ -146,7 +146,9 @@ npm run clean       # 删掉 lib/
 发布走 npm 的 **Trusted Publishing**（OIDC），仓库里不需要配任何 secret：
 
 1. 一次性配置：npmjs.com → 该包 → Settings → Trusted Publishing，填
-   Publisher `GitHub Actions`、Organization `lengyeyu123`、Repository `dsh-stock-ticker`、Workflow `release.yml`
+   Publisher `GitHub Actions`、Organization `lengyeyu123`、Repository `dsh-stock-ticker`、Workflow `release.yml`，
+   Environment 留空；**Allowed actions 里勾上 `Allow npm publish`**（不勾只能 `npm stage publish`，要人工审批）。
+   注意这组字段建好后不能改，填错只能删了重建。
 2. `npm version patch && git push --follow-tags`
 3. workflow 用 OIDC 换短期凭证发布（自带 provenance），再建 Release
 
