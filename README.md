@@ -1,6 +1,7 @@
 # dsh-stock-ticker
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![npm](https://img.shields.io/npm/v/dsh-stock-ticker.svg)](https://www.npmjs.com/package/dsh-stock-ticker)
 [![CI](https://github.com/lengyeyu123/dsh-stock-ticker/actions/workflows/ci.yml/badge.svg)](https://github.com/lengyeyu123/dsh-stock-ticker/actions/workflows/ci.yml)
 [![DSH](https://img.shields.io/badge/DSH-%E2%89%A50.2.1--rc.3-2f6bff)](https://github.com/anywhere-labs/dsh-desktop)
 
@@ -64,13 +65,21 @@ dsh-stock-ticker/
 
 ## 安装
 
-### 从 GitHub 安装
+### 从 npm 安装（推荐）
+
+```bash
+dsh plugin --profile <profile-name> add dsh-stock-ticker
+```
+
+包地址：<https://www.npmjs.com/package/dsh-stock-ticker>
+
+装完重启 DSH Desktop（或重新加载当前工作配置），侧栏底部会出现「自选行情」按钮。
+
+### 从 GitHub 安装（跟最新代码）
 
 ```bash
 dsh plugin --profile <profile-name> add github:lengyeyu123/dsh-stock-ticker
 ```
-
-装完重启 DSH Desktop（或重新加载当前工作配置），侧栏底部会出现「自选行情」按钮。
 
 ### 本地开发
 
@@ -86,14 +95,6 @@ dsh plugin --profile <profile-name> add "link:<绝对路径>/dsh-stock-ticker"
 
 > `lib/` 和 `node_modules/` 不进版本库，所以 clone 下来必须先 `npm install && npm run build`。
 > 用 `link:` 安装时也必须指向**已构建**的目录。
-
-### 从 npm 安装
-
-尚未发布到 npm。若已 `npm publish`，则：
-
-```bash
-dsh plugin --profile <profile-name> add dsh-stock-ticker
-```
 
 ### 卸载
 
