@@ -1,7 +1,12 @@
 # dsh-stock-ticker
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![DSH](https://img.shields.io/badge/DSH-%E2%89%A50.2.1--rc.3-2f6bff)](https://github.com/anywhere-labs/dsh-desktop)
+
 DSH Desktop / DeepSeek Harness 的自选股行情插件。侧栏常驻一条实时报价，点开是浮层面板：
 自选列表 → 点任意标的 → 分时图 / 柱状图，支持 A 股、港股、美股。
+
+> 仓库：<https://github.com/lengyeyu123/dsh-stock-ticker>
 
 - 数据源：腾讯行情（`qt.gtimg.cn` + `web.ifzq.gtimg.cn`），免费、无需 API Key
 - 双半区：宿主侧代理 + 浏览器侧 UI，宿主不可用时浏览器直连兜底
@@ -64,22 +69,32 @@ dsh-stock-ticker/
 
 ## 安装
 
-### 本地开发（推荐）
+### 从 GitHub 安装
 
 ```bash
+dsh plugin --profile <profile-name> add github:lengyeyu123/dsh-stock-ticker
+```
+
+装完重启 DSH Desktop（或重新加载当前工作配置），侧栏底部会出现「自选行情」按钮。
+
+### 本地开发
+
+```bash
+git clone https://github.com/lengyeyu123/dsh-stock-ticker.git
 cd dsh-stock-ticker
 npm install
 npm run build          # 产出 lib/index.js + lib/client.js + lib/types/
 
 # 链接进当前 profile
-dsh plugin --profile <profile-name> add link:<绝对路径>/dsh-stock-ticker
+dsh plugin --profile <profile-name> add "link:<绝对路径>/dsh-stock-ticker"
 ```
 
-然后在 DSH Desktop 里重启 / 重新加载当前工作配置，侧栏底部会出现「自选行情」按钮。
-
-> Desktop 里也可以用 `desktopPnpm` 服务安装，但手写 `dsh plugin add` 更直接。
+> `lib/` 和 `node_modules/` 不进版本库，所以 clone 下来必须先 `npm install && npm run build`。
+> 用 `link:` 安装时也必须指向**已构建**的目录。
 
 ### 从 npm 安装
+
+尚未发布到 npm。若已 `npm publish`，则：
 
 ```bash
 dsh plugin --profile <profile-name> add dsh-stock-ticker
@@ -150,3 +165,9 @@ zod, @tanstack/react-virtual, @deepseek-ai/dsh-client-store,
 - 美股分时依赖 `UsMinute/query`，盘前盘后数据不完整。
 - 侧栏槽位 `sidebar.footer.action` 在不同 shell 版本上可能不存在；不存在时插件仍可通过
   设置页的「自选行情」进入。
+
+## 许可证
+
+[MIT](LICENSE) © 2026 lengyeyu123
+
+行情数据版权归腾讯及各交易所所有，本插件仅做个人行情展示用途。

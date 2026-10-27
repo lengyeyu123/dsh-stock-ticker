@@ -74,5 +74,23 @@
     "tsdown": "^0.22.2",
     "typescript": "^5.7.2"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "author": "lengyeyu123",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "stock",
+    "quote",
+    "intraday",
+    "watchlist"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lengyeyu123/dsh-stock-ticker.git"
+  },
+  "homepage": "https://github.com/lengyeyu123/dsh-stock-ticker#readme",
+  "bugs": {
+    "url": "https://github.com/lengyeyu123/dsh-stock-ticker/issues"
+  }
 }
