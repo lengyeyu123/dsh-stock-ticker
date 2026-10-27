@@ -5,11 +5,20 @@
  * 提供服务，子路径部署也能正确解析）；宿主半区不可用时退化为浏览器直连腾讯接口
  * （两个端点都带 `Access-Control-Allow-Origin: *`，且解析逻辑与宿主侧完全共用）。
  */
-import type { IntradaySeries, MinuteResponse, Quote, QuotesResponse } from '../core/types.ts'
-import { fetchIntraday, fetchQuotes } from '../host/tencent.ts'
+import type {
+  IntradaySeries,
+  KlinePeriod,
+  KlineResponse,
+  KlineSeries,
+  MinuteResponse,
+  Quote,
+  QuotesResponse,
+} from '../core/types.ts'
+import { fetchIntraday, fetchKline, fetchQuotes } from '../host/tencent.ts'
 
 const QUOTES_PATH = 'api/dsh-stock/quotes'
 const MINUTE_PATH = 'api/dsh-stock/minute'
+const KLINE_PATH = 'api/dsh-stock/kline'
 
 const HOST_TIMEOUT_MS = 12_000
 
@@ -27,6 +36,7 @@ async function getJson<T>(url: string): Promise<T> {
 export interface QuoteClient {
   quotes(codes: readonly string[]): Promise<Quote[]>
   minute(code: string): Promise<IntradaySeries>
+  kline(code: string, period: KlinePeriod, count?: number): Promise<KlineSeries>
   /** 最近一次成功取数走的是宿主代理还是浏览器直连。 */
   transport(): 'host' | 'direct'
 }
@@ -74,6 +84,25 @@ export function createQuoteClient(): QuoteClient {
         }
       }
       return await fetchIntraday(code)
+    },
+
+    async kline(code, period, count = 60) {
+      if (host !== 'down') {
+        try {
+          const body = await getJson<KlineResponse>(
+            `${KLINE_PATH}?code=${encodeURIComponent(code)}&period=${period}&count=${String(count)}`,
+          )
+          if (body.ok && body.series !== undefined) {
+            host = 'ok'
+            return body.series
+          }
+          throw new Error(body.error ?? 'K 线请求失败')
+        } catch (error) {
+          if (host === 'ok') throw error
+          host = 'down'
+        }
+      }
+      return await fetchKline(code, period, count)
     },
   }
 }

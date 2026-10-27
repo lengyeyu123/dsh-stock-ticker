@@ -6,7 +6,7 @@
  */
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
-import { makeMinuteRoute, makeQuotesRoute } from './host/routes.ts'
+import { makeKlineRoute, makeMinuteRoute, makeQuotesRoute } from './host/routes.ts'
 
 export const name = 'dsh-stock-ticker'
 
@@ -14,7 +14,7 @@ export const name = 'dsh-stock-ticker'
 export const inject = ['webServer']
 
 /**
- * 挂载 /api/dsh-stock/quotes 与 /api/dsh-stock/minute。
+ * 挂载 /api/dsh-stock/quotes、/minute 与 /kline。
  * @param ctx - 宿主上下文。
  */
 export function apply(ctx: Context): void {
@@ -22,6 +22,7 @@ export function apply(ctx: Context): void {
     const disposers = [
       ctx.webServer.register(makeQuotesRoute()),
       ctx.webServer.register(makeMinuteRoute()),
+      ctx.webServer.register(makeKlineRoute()),
     ]
     return () => {
       for (const dispose of disposers) {

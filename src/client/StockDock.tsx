@@ -26,44 +26,59 @@ export function StockDock({ store, client }: StockDockProps) {
   const state = useSyncExternalStore(store.subscribe, store.getState, store.getState)
   const watchKey = state.watchlist.join(',')
 
-  // 报价轮询：watchlist 或刷新间隔变化时重建循环。
+  // 报价轮询：watchlist / 刷新间隔 / 手动刷新变化时重建循环。
   useEffect(() => {
     let cancelled = false
     let timer = 0
+    let busy = false
     const codes = watchKey === '' ? [] : watchKey.split(',')
 
-    const schedule = (): void => {
+    const schedule = (delay: number): void => {
       if (cancelled) return
-      timer = window.setTimeout(() => { void tick() }, store.getState().intervalMs)
+      window.clearTimeout(timer)
+      timer = window.setTimeout(() => { void tick() }, delay)
     }
 
     const tick = async (): Promise<void> => {
-      if (cancelled) return
+      if (cancelled || busy) return
+      const { intervalMs } = store.getState().settings
       if (codes.length === 0) {
-        schedule()
+        schedule(intervalMs)
         return
       }
       // 窗口不可见时跳过网络请求，只维持计时。
       if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
-        schedule()
+        schedule(intervalMs)
         return
       }
+      busy = true
       store.actions.setLoading(true)
       try {
         const quotes = await client.quotes(codes)
         if (!cancelled) store.actions.applyQuotes(quotes, Date.now())
       } catch (error) {
         if (!cancelled) store.actions.setError(error instanceof Error ? error.message : '行情请求失败')
+      } finally {
+        busy = false
+        if (!cancelled) schedule(store.getState().settings.intervalMs)
       }
-      schedule()
+    }
+
+    // 回到前台立刻补一次，不用等下一个间隔。
+    const onVisible = (): void => {
+      if (document.visibilityState !== 'visible') return
+      window.clearTimeout(timer)
+      void tick()
     }
 
     void tick()
+    document.addEventListener('visibilitychange', onVisible)
     return () => {
       cancelled = true
       window.clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
     }
-  }, [watchKey, state.intervalMs, client, store])
+  }, [watchKey, state.settings.intervalMs, state.refreshNonce, client, store])
 
   // 展开时把面板贴到侧栏按钮右侧；拿不到按钮几何时退回左下角默认位。
   useEffect(() => {

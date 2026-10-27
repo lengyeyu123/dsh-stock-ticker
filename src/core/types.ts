@@ -80,3 +80,36 @@ export interface MinuteResponse {
   series?: IntradaySeries
   error?: string
 }
+
+/** K 线周期。 */
+export type KlinePeriod = 'day' | 'week' | 'month'
+
+/** 一根 K 线。 */
+export interface Candle {
+  /** 交易日 YYYY-MM-DD；周 / 月线是区间最后一个交易日。 */
+  date: string
+  open: number
+  close: number
+  high: number
+  low: number
+  /** 成交量，统一折算成「股」。 */
+  volume: number
+}
+
+/** 一段 K 线序列。 */
+export interface KlineSeries {
+  code: string
+  name: string
+  period: KlinePeriod
+  /** 按时间升序。 */
+  candles: Candle[]
+  market: Market
+  currency: Currency
+}
+
+/** /api/dsh-stock/kline 的响应。 */
+export interface KlineResponse {
+  ok: boolean
+  series?: KlineSeries
+  error?: string
+}

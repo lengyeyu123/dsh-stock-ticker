@@ -7,14 +7,22 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
 import { normalizeSymbol } from '../core/symbol.ts'
-import type { MinuteResponse, QuotesResponse } from '../core/types.ts'
-import { fetchIntraday, fetchQuotes } from './tencent.ts'
+import type { KlinePeriod, KlineResponse, MinuteResponse, QuotesResponse } from '../core/types.ts'
+import { fetchIntraday, fetchKline, fetchQuotes } from './tencent.ts'
 
 /** 路由前缀。 */
 export const STOCK_API_PREFIX = '/api/dsh-stock'
 
 /** 一次最多查询的标的数。 */
 const MAX_CODES = 40
+
+/** 允许的 K 线周期。 */
+const PERIODS: readonly KlinePeriod[] = ['day', 'week', 'month']
+
+/** K 线默认根数与上下限。 */
+const DEFAULT_COUNT = 60
+const MIN_COUNT = 20
+const MAX_COUNT = 240
 
 /**
  * 写出 JSON 响应。
@@ -98,6 +106,47 @@ export function makeMinuteRoute(): WebRoute {
           ok: false,
           error: error instanceof Error ? error.message : '分时请求失败',
         } satisfies MinuteResponse)
+      }
+    },
+  }
+}
+
+/**
+ * K 线路由：`GET /api/dsh-stock/kline?code=sh600519&period=day&count=60`
+ * @returns 路由定义。
+ */
+export function makeKlineRoute(): WebRoute {
+  return {
+    kind: 'exact',
+    path: `${STOCK_API_PREFIX}/kline`,
+    handler: async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+      const url = requestUrl(req)
+      const code = normalizeSymbol(url.searchParams.get('code') ?? '')
+      if (code === null) {
+        writeJson(res, 400, { ok: false, error: '缺少有效的 code 参数' } satisfies KlineResponse)
+        return
+      }
+
+      const rawPeriod = url.searchParams.get('period') ?? 'day'
+      const period = PERIODS.find((item) => item === rawPeriod)
+      if (period === undefined) {
+        writeJson(res, 400, { ok: false, error: 'period 只支持 day / week / month' } satisfies KlineResponse)
+        return
+      }
+
+      const rawCount = Number(url.searchParams.get('count') ?? DEFAULT_COUNT)
+      const count = Number.isFinite(rawCount)
+        ? Math.min(MAX_COUNT, Math.max(MIN_COUNT, Math.round(rawCount)))
+        : DEFAULT_COUNT
+
+      try {
+        const series = await fetchKline(code, period, count)
+        writeJson(res, 200, { ok: true, series } satisfies KlineResponse)
+      } catch (error) {
+        writeJson(res, 502, {
+          ok: false,
+          error: error instanceof Error ? error.message : 'K 线请求失败',
+        } satisfies KlineResponse)
       }
     },
   }

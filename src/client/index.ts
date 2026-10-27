@@ -15,6 +15,7 @@ import { createElement } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createQuoteClient, type QuoteClient } from './api.ts'
 import { createStockStore, type StockStore } from './store.ts'
+import { ensurePanelStyles } from './styles.ts'
 import { NS, en, zh } from './locales.ts'
 import { StockDock } from './StockDock.tsx'
 import { StockPage } from './StockPage.tsx'
@@ -111,6 +112,7 @@ export function apply(ctx: ClientContext): void {
   // 浮层面板 + 轮询循环：常驻 body，不受 shell 重渲染影响
   ctx.effect(() => {
     if (typeof document === 'undefined') return () => {}
+    ensurePanelStyles()
     const existing = document.querySelector(`[${ROOT_ATTR}]`)
     if (existing !== null) existing.remove()
 

@@ -6,6 +6,7 @@
  * 涨跌遵循 A 股习惯：红涨绿跌。
  */
 import { useEffect, useState } from 'react'
+import type { ColorMode } from './store.ts'
 
 export interface Palette {
   /** 面板底色。 */
@@ -27,6 +28,8 @@ export interface Palette {
   down: string
   /** 平盘色。 */
   flat: string
+  /** 连接正常等状态色，不随涨跌配色方向变化。 */
+  ok: string
   /** 强调色（选中、聚焦）。 */
   accent: string
   /** 悬浮高亮底。 */
@@ -46,6 +49,7 @@ const LIGHT: Palette = {
   up: '#e0483d',
   down: '#0a9c6d',
   flat: '#8b95a3',
+  ok: '#0a9c6d',
   accent: '#2f6bff',
   hover: 'rgba(47, 107, 255, 0.08)',
   mode: 'light',
@@ -63,6 +67,7 @@ const DARK: Palette = {
   up: '#ff5a4e',
   down: '#22c58b',
   flat: '#8b95a3',
+  ok: '#22c58b',
   accent: '#6f9bff',
   hover: 'rgba(111, 155, 255, 0.14)',
   mode: 'dark',
@@ -96,9 +101,10 @@ function detectMode(): 'light' | 'dark' {
 
 /**
  * 订阅 shell 主题并返回对应调色板。
+ * @param colorMode - 涨跌配色；`us` 时红绿互换（绿涨红跌）。
  * @returns 当前调色板。
  */
-export function usePalette(): Palette {
+export function usePalette(colorMode: ColorMode = 'cn'): Palette {
   const [mode, setMode] = useState<'light' | 'dark'>(() => detectMode())
 
   useEffect(() => {
@@ -119,7 +125,8 @@ export function usePalette(): Palette {
     }
   }, [])
 
-  return mode === 'dark' ? DARK : LIGHT
+  const base = mode === 'dark' ? DARK : LIGHT
+  return colorMode === 'us' ? { ...base, up: base.down, down: base.up } : base
 }
 
 /**

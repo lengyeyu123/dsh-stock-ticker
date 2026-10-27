@@ -24,22 +24,25 @@ const ROTATE_MS = 4_500
  * @returns 按钮。
  */
 export function StockTickerButton({ store }: StockTickerButtonProps) {
-  const palette = usePalette()
   const state = useSyncExternalStore(store.subscribe, store.getState, store.getState)
+  const palette = usePalette(state.settings.colorMode)
   const [cursor, setCursor] = useState(0)
   const [hover, setHover] = useState(false)
 
   const total = state.watchlist.length
+  const rotate = state.settings.rotateSidebar
 
+  // 悬停时暂停轮播，方便看清当前这只；关掉轮播则固定第一只。
   useEffect(() => {
-    if (total <= 1) return
+    if (total <= 1 || !rotate || hover) return
     const timer = window.setInterval(() => {
       setCursor((prev) => (prev + 1) % total)
     }, ROTATE_MS)
     return () => { window.clearInterval(timer) }
-  }, [total])
+  }, [total, rotate, hover])
 
-  const code = total === 0 ? null : state.watchlist[cursor % Math.max(total, 1)] ?? null
+  const index = rotate ? cursor % Math.max(total, 1) : 0
+  const code = total === 0 ? null : state.watchlist[index] ?? null
   const quote = code === null ? undefined : state.quotes[code]
   const pct = quote?.changePct ?? 0
   const color = quote === undefined ? palette.faint : toneColor(pct, palette)
