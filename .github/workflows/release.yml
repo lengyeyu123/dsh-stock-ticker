@@ -1,21 +1,18 @@
+# 只发 GitHub Release，不再发布到 npm。
+#
+# 触发：推送 v* tag → 校验版本 → 类型检查 + 构建 → 打包 tarball → 建 Release。
+# 不需要任何 secret，GITHUB_TOKEN 由 Actions 自动提供。
 name: Release
 
 on:
   push:
     tags: ['v*']
-  workflow_dispatch:
-    inputs:
-      dry-run:
-        description: '只打包不发布（npm publish --dry-run）'
-        type: boolean
-        default: true
 
 permissions:
-  contents: read
-  id-token: write # npm provenance 需要 OIDC
+  contents: write
 
 jobs:
-  publish:
+  release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,14 +20,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          registry-url: https://registry.npmjs.org
           cache: npm
 
       - name: 安装依赖
         run: npm ci
 
       - name: 校验 tag 与 package.json 版本一致
-        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           set -euo pipefail
           tag="${GITHUB_REF#refs/tags/v}"
@@ -41,12 +36,25 @@ jobs:
           fi
           echo "版本 $pkg 校验通过"
 
-      - name: 打包预览
-        if: github.event_name == 'workflow_dispatch' && inputs.dry-run
-        run: npm publish --dry-run --access public
+      - name: 类型检查与构建
+        run: |
+          npm run typecheck
+          npm run build
 
-      - name: 发布到 npm
-        if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && !inputs.dry-run)
-        run: npm publish --provenance --access public
+      - name: 打包 tarball
+        run: npm pack
+
+      - name: 创建 GitHub Release
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "Release 已存在，只补传 tarball"
+            gh release upload "$GITHUB_REF_NAME" ./*.tgz --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" ./*.tgz \
+              --title "$GITHUB_REF_NAME" \
+              --generate-notes \
+              --verify-tag
+          fi

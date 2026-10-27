@@ -1,7 +1,7 @@
 # dsh-stock-ticker
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![npm](https://img.shields.io/npm/v/dsh-stock-ticker.svg)](https://www.npmjs.com/package/dsh-stock-ticker)
+[![Release](https://img.shields.io/github/v/release/lengyeyu123/dsh-stock-ticker)](https://github.com/lengyeyu123/dsh-stock-ticker/releases)
 [![CI](https://github.com/lengyeyu123/dsh-stock-ticker/actions/workflows/ci.yml/badge.svg)](https://github.com/lengyeyu123/dsh-stock-ticker/actions/workflows/ci.yml)
 [![DSH](https://img.shields.io/badge/DSH-%E2%89%A50.2.1--rc.3-2f6bff)](https://github.com/anywhere-labs/dsh-desktop)
 
@@ -88,21 +88,18 @@ dsh-stock-ticker/
 
 ## 安装
 
-### 从 npm 安装（推荐）
-
-```bash
-dsh plugin --profile <profile-name> add dsh-stock-ticker
-```
-
-包地址：<https://www.npmjs.com/package/dsh-stock-ticker>
-
-装完重启 DSH Desktop（或重新加载当前工作配置），侧栏底部会出现「自选行情」按钮。
-
-### 从 GitHub 安装（跟最新代码）
+### 从 GitHub 安装（推荐）
 
 ```bash
 dsh plugin --profile <profile-name> add github:lengyeyu123/dsh-stock-ticker
 ```
+
+npm 装 git 依赖时会自动跑 `prepare`（类型检查 + 构建），不需要手动 build。
+
+装完重启 DSH Desktop（或重新加载当前工作配置），侧栏底部会出现「自选行情」按钮。
+
+> 插件只通过 GitHub 分发，不再发布到 npm。`0.1.0` 是最后一个 npm 版本，之后的更新都在
+> [Releases](https://github.com/lengyeyu123/dsh-stock-ticker/releases) 里，每个版本附一份打包好的 tarball，离线环境也能装。
 
 ### 本地开发
 
@@ -138,15 +135,15 @@ npm run clean       # 删掉 lib/
 | workflow | 触发 | 做什么 |
 | --- | --- | --- |
 | `ci.yml` | push / PR 到 `main` | Node 22 与 24 双版本跑类型检查 + 构建，并校验产物约定（`client.js` 必须是 `__ModuleLoader__` 闭包工厂、只能 `require` 冻结模块表里的依赖、类型声明要能对上 `exports`） |
-| `release.yml` | 推送 `v*` tag | 校验 tag 与 `package.json` 版本一致，再 `npm publish --provenance` |
+| `release.yml` | 推送 `v*` tag | 校验 tag 与 `package.json` 版本一致，跑类型检查 + 构建，打包 tarball 并建 GitHub Release |
 
-发布步骤：
+发版步骤：
 
-1. 仓库 Settings → Secrets and variables → Actions 里加 `NPM_TOKEN`（npm 的 Automation token）
-2. `npm version patch && git push --follow-tags`
-3. workflow 自动发布带 provenance 的包
+1. `npm version minor -m "chore: 发布 v%s"`（`patch` / `major` 同理）
+2. `git push --follow-tags`
+3. workflow 自动建 Release，附 tarball 和按 commit 生成的变更说明
 
-也可以在 Actions 页手动触发 Release，默认 `dry-run` 只打包不发布。
+不需要配置任何 secret —— `GITHUB_TOKEN` 由 Actions 自带。想补发说明或改标题，直接在 Release 页编辑即可。
 
 ## HTTP 接口
 

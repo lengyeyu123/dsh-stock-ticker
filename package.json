@@ -52,12 +52,7 @@
     "prepare": "tsc -p tsconfig.build.json && tsdown",
     "watch": "tsdown --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "clean": "node -e \"require('fs').rmSync('lib',{recursive:true,force:true})\"",
-    "prepublishOnly": "npm run typecheck && npm run clean && npm run build"
-  },
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org"
+    "clean": "node -e \"require('fs').rmSync('lib',{recursive:true,force:true})\""
   },
   "engines": {
     "node": "^22.19.0 || >=24.0.0"
