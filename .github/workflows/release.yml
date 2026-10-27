@@ -31,14 +31,15 @@ jobs:
           node-version: '22'
           cache: npm
 
+      - name: 安装依赖
+        # 用 runner 自带的 npm（与 ci.yml 完全一致的安装路径），别让新 npm 参与解析
+        run: npm ci
+
       - name: 升级 npm
         run: |
-          # Trusted Publishing 需要 npm >= 11.5.1，Node 22 自带的是 10.x
+          # 只有发布这一步需要 npm >= 11.5.1（Trusted Publishing），装完依赖再升
           npm install -g npm@latest
           npm --version
-
-      - name: 安装依赖
-        run: npm ci
 
       - name: 校验 tag 与 package.json 版本一致
         run: |
