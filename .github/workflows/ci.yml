@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: build (node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 插件要求 Node ^22.19 || >=24，两个 LTS 面都测
+        node: ['22', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 类型检查
+        run: npm run typecheck
+
+      - name: 构建双半区
+        run: npm run build
+
+      - name: 校验产物约定
+        run: |
+          set -euo pipefail
+          # host 半区必须是 ESM，且导出 apply / inject
+          test -f lib/index.js
+          grep -q "export" lib/index.js
+          # browser 半区必须是 __ModuleLoader__ 闭包工厂，否则 shell 加载不了
+          test -f lib/client.js
+          head -c 200 lib/client.js | grep -q "__ModuleLoader__.load"
+          # 表外依赖必须内联，只能 require 冻结模块表里的东西
+          allowed='react|react-dom|react/jsx-runtime|react-dom/client'
+          bad=$(grep -o 'require("[^"]*")' lib/client.js | sed 's/require("//;s/")//' | sort -u | grep -v -E "^(${allowed})$" || true)
+          if [ -n "$bad" ]; then
+            echo "::error::client bundle 引用了模块表之外的依赖: $bad"
+            exit 1
+          fi
+          # 类型声明要能对上 package.json 的 exports
+          test -f lib/types/index.d.ts
+          test -f lib/types/client/index.d.ts
+          echo "产物校验通过"

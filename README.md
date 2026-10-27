@@ -1,6 +1,7 @@
 # dsh-stock-ticker
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/lengyeyu123/dsh-stock-ticker/actions/workflows/ci.yml/badge.svg)](https://github.com/lengyeyu123/dsh-stock-ticker/actions/workflows/ci.yml)
 [![DSH](https://img.shields.io/badge/DSH-%E2%89%A50.2.1--rc.3-2f6bff)](https://github.com/anywhere-labs/dsh-desktop)
 
 DSH Desktop / DeepSeek Harness 的自选股行情插件。侧栏常驻一条实时报价，点开是浮层面板：
@@ -12,17 +13,11 @@ DSH Desktop / DeepSeek Harness 的自选股行情插件。侧栏常驻一条实�
 - 双半区：宿主侧代理 + 浏览器侧 UI，宿主不可用时浏览器直连兜底
 - 涨跌配色遵循 A 股习惯：**红涨绿跌**
 
-| 列表 | 分时图 |
-| --- | --- |
-| ![列表](preview/screenshot-list.png) | ![分时](preview/screenshot-detail.png) |
-
-| 柱状图 | 深色主题 |
-| --- | --- |
-| ![柱状](preview/screenshot-bar.png) | ![深色](preview/screenshot-dark.png) |
+![演示](preview/demo.gif)
 
 免构建预览：直接打开 `preview/stock-panel-preview.html`（直连真实行情）。
 若浏览器拦截跨域，用 `python -m http.server` 起个本地服务再访问；断网时加 `?mock=1` 看离线演示数据，
-`?theme=dark` 切深色，`#code=sh600519` 直接打开某个标的。
+`?theme=dark` 切深色，`?bare=1` 隐藏说明文字便于截图，`#code=sh600519` 直接打开某个标的。
 
 ## 功能
 
@@ -105,6 +100,29 @@ dsh plugin --profile <profile-name> add dsh-stock-ticker
 ```bash
 dsh plugin --profile <profile-name> remove dsh-stock-ticker
 ```
+
+## 开发与发布
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm run build       # 产出 lib/index.js + lib/client.js + lib/types/
+npm run clean       # 删掉 lib/
+```
+
+仓库自带两个 workflow：
+
+| workflow | 触发 | 做什么 |
+| --- | --- | --- |
+| `ci.yml` | push / PR 到 `main` | Node 22 与 24 双版本跑类型检查 + 构建，并校验产物约定（`client.js` 必须是 `__ModuleLoader__` 闭包工厂、只能 `require` 冻结模块表里的依赖、类型声明要能对上 `exports`） |
+| `release.yml` | 推送 `v*` tag | 校验 tag 与 `package.json` 版本一致，再 `npm publish --provenance` |
+
+发布步骤：
+
+1. 仓库 Settings → Secrets and variables → Actions 里加 `NPM_TOKEN`（npm 的 Automation token）
+2. `npm version patch && git push --follow-tags`
+3. workflow 自动发布带 provenance 的包
+
+也可以在 Actions 页手动触发 Release，默认 `dry-run` 只打包不发布。
 
 ## HTTP 接口
 

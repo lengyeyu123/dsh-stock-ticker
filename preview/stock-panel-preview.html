@@ -42,6 +42,8 @@
   html[data-theme="dark"] .nav-item .bar { background: #343a45; }
   html[data-theme="dark"] .main .hint code { background: #23272f; }
   html[data-theme="dark"] .banner { background: #23272f; box-shadow: none; }
+  /* 截图模式：隐藏主区说明文字，画面更干净 */
+  html[data-bare] .main .hint { display: none; }
   html, body { height: 100%; }
   body {
     margin: 0;
@@ -329,6 +331,7 @@
 
   const MOCK = /[?&]mock\b/.test(location.search);
   if (/[?&]theme=dark\b/.test(location.search)) document.documentElement.setAttribute('data-theme', 'dark');
+  if (/[?&]bare\b/.test(location.search)) document.documentElement.setAttribute('data-bare', '');
   const MOCK_BASE = { sh000001: 3648.3, sh600519: 1355.9, sz300750: 268.4, hk00700: 384.0, usAAPL: 343.91 };
   const MOCK_NAME = { sh000001: '上证指数', sh600519: '贵州茅台', sz300750: '宁德时代', hk00700: '腾讯控股', usAAPL: '苹果' };
 
