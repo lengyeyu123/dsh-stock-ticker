@@ -1,8 +1,15 @@
-# tag 触发：先发 npm，再建 GitHub Release。
+# tag 触发：先用 OIDC 发布到 npm（Trusted Publishing，不需要任何 token），再建 GitHub Release。
 #
-# npm 认证二选一：
-#   1) 仓库 secret `NPM_TOKEN`（npm 的 Automation token）
-#   2) npm 后台配 Trusted Publishing（OIDC），然后把下面 publish 步骤的 NODE_AUTH_TOKEN 删掉
+# 一次性前置配置（npmjs.com → 该包 → Settings → Trusted Publishing）：
+#   Publisher          GitHub Actions
+#   Organization       lengyeyu123
+#   Repository         dsh-stock-ticker
+#   Workflow filename  release.yml
+#   Environment        留空
+#
+# 这里刻意不写 setup-node 的 `registry-url`：它会生成带 `_authToken=${NODE_AUTH_TOKEN}`
+# 的 .npmrc，而 OIDC 流程下没有这个变量，npm 会报 "Failed to replace env in config"。
+# GitHub runner 的默认 registry 本来就是 registry.npmjs.org，不用额外指定。
 name: Release
 
 on:
@@ -11,7 +18,7 @@ on:
 
 permissions:
   contents: write
-  id-token: write # provenance / trusted publishing 需要 OIDC
+  id-token: write # OIDC：npm 用它换短期发布凭证，同时生成 provenance
 
 jobs:
   publish:
@@ -22,8 +29,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          registry-url: https://registry.npmjs.org
           cache: npm
+
+      - name: 升级 npm
+        run: |
+          # Trusted Publishing 需要 npm >= 11.5.1，Node 22 自带的是 10.x
+          npm install -g npm@latest
+          npm --version
 
       - name: 安装依赖
         run: npm ci
@@ -45,8 +57,6 @@ jobs:
           npm run build
 
       - name: 发布到 npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           set -euo pipefail
           version=$(node -p "require('./package.json').version")

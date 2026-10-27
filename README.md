@@ -141,17 +141,17 @@ npm run clean       # 删掉 lib/
 | workflow | 触发 | 做什么 |
 | --- | --- | --- |
 | `ci.yml` | push / PR 到 `main` | Node 22 与 24 双版本跑类型检查 + 构建，并校验产物约定（`client.js` 必须是 `__ModuleLoader__` 闭包工厂、只能 `require` 冻结模块表里的依赖、类型声明要能对上 `exports`） |
-| `release.yml` | 推送 `v*` tag | 校验 tag 与 `package.json` 版本一致，跑类型检查 + 构建，发布到 npm（该版本已存在则跳过），再建 GitHub Release 并附 tarball |
+| `release.yml` | 推送 `v*` tag | 校验 tag 与 `package.json` 版本一致，跑类型检查 + 构建，通过 OIDC 发布到 npm（该版本已存在则跳过），再建 GitHub Release 并附 tarball |
 
-发布步骤：
+发布走 npm 的 **Trusted Publishing**（OIDC），仓库里不需要配任何 secret：
 
-1. 仓库 Settings → Secrets and variables → Actions 里加 `NPM_TOKEN`
-   （npm 的 **Automation** token；Granular token 需要给这个包 read/write 权限）
+1. 一次性配置：npmjs.com → 该包 → Settings → Trusted Publishing，填
+   Publisher `GitHub Actions`、Organization `lengyeyu123`、Repository `dsh-stock-ticker`、Workflow `release.yml`
 2. `npm version patch && git push --follow-tags`
-3. workflow 自动发布带 provenance 的包，并建 Release
+3. workflow 用 OIDC 换短期凭证发布（自带 provenance），再建 Release
 
-> 不想维护 token 可以改用 npm 的 **Trusted Publishing**（OIDC）：在 npm 包设置里绑定本仓库和 `release.yml`，
-> 然后把 publish 步骤的 `NODE_AUTH_TOKEN` 删掉即可，workflow 已经带了 `id-token: write`。
+> 应急也可以在本地 `npm login` 后直接 `npm publish --access public`，只是没有 provenance。
+> 注意本机 `.npmrc` 默认源常是镜像，需要加 `--registry=https://registry.npmjs.org`。
 
 ## HTTP 接口
 
