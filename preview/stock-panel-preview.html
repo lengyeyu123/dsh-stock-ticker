@@ -1,0 +1,799 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>dsh-stock-ticker · 自选行情预览</title>
+<style>
+  :root {
+    --surface: #ffffff;
+    --surface-alt: #f5f6f8;
+    --text: #14171c;
+    --subtext: #5b6472;
+    --faint: #8b95a3;
+    --border: rgba(16, 24, 40, 0.10);
+    --grid: rgba(16, 24, 40, 0.07);
+    --up: #e0483d;
+    --down: #0a9c6d;
+    --flat: #8b95a3;
+    --accent: #2f6bff;
+    --hover: rgba(47, 107, 255, 0.08);
+    --shadow: 0 18px 48px rgba(16, 24, 40, 0.18), 0 2px 8px rgba(16, 24, 40, 0.08);
+  }
+  * { box-sizing: border-box; }
+  html[data-theme="dark"] {
+    --surface: #1c1f26;
+    --surface-alt: #252932;
+    --text: #e9ecf1;
+    --subtext: #9aa4b2;
+    --faint: #6f7a89;
+    --border: rgba(255, 255, 255, 0.10);
+    --grid: rgba(255, 255, 255, 0.07);
+    --up: #ff5a4e;
+    --down: #22c58b;
+    --flat: #8b95a3;
+    --accent: #6f9bff;
+    --hover: rgba(111, 155, 255, 0.14);
+    --shadow: 0 18px 48px rgba(0, 0, 0, 0.55), 0 2px 8px rgba(0, 0, 0, 0.35);
+  }
+  html[data-theme="dark"] body { background: #14161b; }
+  html[data-theme="dark"] .sidebar { background: #191c22; }
+  html[data-theme="dark"] .nav-item.active { background: #23272f; box-shadow: none; }
+  html[data-theme="dark"] .nav-item .bar { background: #343a45; }
+  html[data-theme="dark"] .main .hint code { background: #23272f; }
+  html[data-theme="dark"] .banner { background: #23272f; box-shadow: none; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #eef0f4;
+    color: var(--text);
+    overflow: hidden;
+  }
+  .app { display: flex; height: 100vh; }
+
+  /* ---- 模拟的 shell 侧栏，用来演示插件落位 ---- */
+  .sidebar {
+    width: 232px;
+    flex: none;
+    background: #f7f8fa;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 14px 10px 10px;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; padding: 0 6px 16px; font-size: 13px; font-weight: 600; color: var(--text); }
+  .brand .dot { width: 18px; height: 18px; border-radius: 6px; background: linear-gradient(135deg, #2f6bff, #7aa2ff); }
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 8px; border-radius: 8px; font-size: 12.5px; color: var(--subtext);
+  }
+  .nav-item.active { background: #fff; color: var(--text); box-shadow: 0 1px 2px rgba(16,24,40,.06); }
+  .nav-item .bar { width: 14px; height: 14px; border-radius: 4px; background: #d7dbe3; }
+  .spacer { flex: 1; }
+  .foot { border-top: 1px solid var(--border); padding-top: 8px; }
+  .settings-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 8px; border-radius: 8px; font-size: 12.5px; color: var(--subtext);
+  }
+
+  /* ---- 插件按钮 ---- */
+  #trigger {
+    display: flex; align-items: center; gap: 6px;
+    width: 100%; height: 30px; padding: 0 8px; margin-bottom: 4px;
+    border-radius: 8px; border: 1px solid transparent; background: var(--hover);
+    color: var(--text); cursor: pointer; font-family: inherit; text-align: left;
+  }
+  #trigger .led { width: 6px; height: 6px; border-radius: 50%; background: var(--down); flex: none; }
+  #trigger .nm { flex: 1; min-width: 0; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #trigger .pct { font-size: 11px; font-variant-numeric: tabular-nums; flex: none; }
+
+  /* ---- 主区域 ---- */
+  .main { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: 13px; }
+  .main .hint { text-align: center; line-height: 2; }
+  .main .hint code { background: #fff; padding: 2px 6px; border-radius: 5px; color: var(--subtext); font-size: 12px; }
+
+  /* ---- 面板 ---- */
+  .panel {
+    position: fixed; left: 16px; bottom: 96px; width: 392px;
+    max-height: min(660px, calc(100vh - 120px));
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: var(--shadow); display: flex; flex-direction: column; overflow: hidden;
+    z-index: 20;
+  }
+  .panel[hidden] { display: none; }
+  .p-head {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+    border-bottom: 1px solid var(--border); background: var(--surface-alt);
+    cursor: grab; user-select: none;
+  }
+  .p-title { font-size: 13px; font-weight: 600; }
+  .p-clock { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; margin-left: auto; }
+  .p-led { width: 7px; height: 7px; border-radius: 50%; background: var(--down); box-shadow: 0 0 0 3px rgba(10,156,109,.13); }
+  .p-close { border: none; background: transparent; color: var(--faint); font-size: 16px; cursor: pointer; padding: 0 2px; line-height: 1; }
+  .p-back { border: none; background: transparent; color: var(--subtext); font-size: 13px; cursor: pointer; padding: 2px 4px; border-radius: 6px; }
+
+  .p-add { display: flex; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  .p-add input {
+    flex: 1; min-width: 0; padding: 6px 9px; font-size: 12px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); outline: none; font-family: inherit;
+  }
+  .p-add button {
+    padding: 6px 12px; font-size: 12px; border-radius: 8px; border: none;
+    background: var(--accent); color: #fff; cursor: pointer; font-family: inherit;
+  }
+
+  .p-body { overflow-y: auto; flex: 1; }
+
+  .row {
+    display: flex; align-items: center; gap: 10px; padding: 9px 12px;
+    border-bottom: 1px solid var(--border); cursor: pointer;
+  }
+  .row:hover { background: var(--hover); }
+  .row .name { flex: 1; min-width: 0; font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .meta { font-size: 10.5px; color: var(--faint); margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .row .px { text-align: right; font-variant-numeric: tabular-nums; }
+  .row .px .a { font-size: 13.5px; font-weight: 500; }
+  .row .px .b { font-size: 10.5px; margin-top: 2px; }
+  .row .badge {
+    width: 66px; text-align: center; padding: 4px 0; border-radius: 6px;
+    font-size: 11.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+  }
+
+  .detail { padding: 12px; }
+  .d-head { display: flex; align-items: flex-end; gap: 10px; margin-bottom: 12px; }
+  .d-head .l { flex: 1; min-width: 0; }
+  .d-head .nm { font-size: 14px; font-weight: 600; }
+  .d-head .meta { font-size: 10.5px; color: var(--faint); margin-top: 2px; }
+  .d-head .r { text-align: right; font-variant-numeric: tabular-nums; }
+  .d-head .price { font-size: 22px; font-weight: 600; line-height: 1.1; }
+  .d-head .chg { font-size: 11.5px; margin-top: 3px; }
+
+  .stats {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 6px;
+    padding: 10px 12px; border-radius: 10px; background: var(--surface-alt); margin-bottom: 10px;
+  }
+  .stat .k { font-size: 11px; color: var(--faint); }
+  .stat .v { font-size: 12.5px; font-variant-numeric: tabular-nums; margin-top: 3px; }
+
+  .chart-card { border: 1px solid var(--border); border-radius: 10px; padding: 8px 8px 4px; }
+  .chart-head { display: flex; align-items: center; gap: 8px; padding: 0 4px 6px; }
+  .chart-head .t { font-size: 12px; font-weight: 500; }
+  .chart-head .lg { font-size: 10.5px; color: var(--faint); }
+  .seg { display: flex; margin-left: auto; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .seg button {
+    border: none; padding: 3px 10px; font-size: 11px; cursor: pointer;
+    background: transparent; color: var(--subtext); font-family: inherit;
+  }
+  .seg button.on { background: var(--accent); color: #fff; }
+
+  .rates { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 11px; color: var(--faint); }
+  .rates button {
+    border: 1px solid var(--border); background: transparent; color: var(--subtext);
+    border-radius: 6px; padding: 2px 7px; font-size: 10.5px; cursor: pointer; font-family: inherit;
+  }
+  .rates button.on { border-color: var(--accent); background: rgba(47,107,255,.08); color: var(--accent); }
+
+  .banner {
+    position: fixed; top: 14px; right: 16px; z-index: 30;
+    background: #fff; border: 1px solid var(--border); border-radius: 10px;
+    padding: 8px 12px; font-size: 11.5px; color: var(--subtext);
+    box-shadow: 0 4px 16px rgba(16,24,40,.08);
+  }
+  .banner b { color: var(--text); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand"><span class="dot"></span>DeepSeek Harness</div>
+    <div class="nav-item active"><span class="bar"></span>会话</div>
+    <div class="nav-item"><span class="bar"></span>工作区</div>
+    <div class="nav-item"><span class="bar"></span>插件市场</div>
+    <div class="spacer"></div>
+    <div class="foot">
+      <button id="trigger" type="button">
+        <span class="led"></span><span class="nm">自选行情</span><span class="pct"></span>
+      </button>
+      <div class="settings-row"><span class="bar"></span>设置</div>
+    </div>
+  </aside>
+  <main class="main">
+    <div class="hint">
+      这是 <b>dsh-stock-ticker</b> 插件的界面预览<br />
+      点击左下角 <code>自选行情</code> 按钮开关面板，点任意标的看分时图<br />
+      行情为腾讯实时数据（A股 / 港股 / 美股）
+    </div>
+  </main>
+</div>
+
+<div class="banner" id="banner">数据源：<b>腾讯行情</b> · <span id="src">连接中…</span></div>
+
+<div class="panel" id="panel">
+  <div class="p-head" id="p-head">
+    <span class="p-title" id="p-title">自选行情</span>
+    <span class="p-clock" id="p-clock">--:--:--</span>
+    <span class="p-led" id="p-led"></span>
+    <button class="p-close" id="p-close" aria-label="关闭">×</button>
+  </div>
+  <div id="p-slot"></div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const WATCH = ['sh000001', 'sh600519', 'sz300750', 'hk00700', 'usAAPL'];
+  const INTERVALS = [3000, 5000, 10000, 30000, 60000];
+
+  const state = {
+    watchlist: [...WATCH],
+    quotes: {},
+    series: null,
+    selected: null,
+    view: 'list',
+    mode: 'line',
+    intervalMs: 5000,
+    updatedAt: 0,
+    error: null,
+    source: 'host',
+    rotating: 0,
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const panel = $('panel');
+  const slot = $('p-slot');
+  const trigger = $('trigger');
+
+  /* ---------------- 格式化 ---------------- */
+
+  const fmtPrice = (v) => (Number.isFinite(v) ? v.toFixed(2) : '--');
+  const fmtPct = (v) => (Number.isFinite(v) ? (v > 0 ? '+' : '') + v.toFixed(2) + '%' : '--');
+  const fmtChange = (v) => (Number.isFinite(v) ? (v > 0 ? '+' : '') + v.toFixed(2) : '--');
+
+  function fmtVolume(shares, market) {
+    if (!Number.isFinite(shares) || shares <= 0) return '--';
+    if (market === 'sh' || market === 'sz' || market === 'bj') {
+      const lots = shares / 100;
+      if (lots >= 1e8) return (lots / 1e8).toFixed(2) + '亿手';
+      if (lots >= 1e4) return (lots / 1e4).toFixed(2) + '万手';
+      return Math.round(lots) + '手';
+    }
+    if (shares >= 1e8) return (shares / 1e8).toFixed(2) + '亿股';
+    if (shares >= 1e4) return (shares / 1e4).toFixed(2) + '万股';
+    return Math.round(shares) + '股';
+  }
+
+  function fmtAmount(v) {
+    if (!Number.isFinite(v) || v <= 0) return '--';
+    if (v >= 1e8) return (v / 1e8).toFixed(2) + '亿';
+    if (v >= 1e4) return (v / 1e4).toFixed(2) + '万';
+    return v.toFixed(0);
+  }
+
+  const marketLabel = (m) => ({ sh: '沪', sz: '深', bj: '京', hk: '港' })[m] || 'US';
+  const tone = (v) => (v > 0 ? 'var(--up)' : v < 0 ? 'var(--down)' : 'var(--flat)');
+  const toneHex = (v) => (v > 0 ? '#e0483d' : v < 0 ? '#0a9c6d' : '#8b95a3');
+
+  /* ---------------- 数据 ---------------- */
+
+  function num(raw) {
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function marketOf(code) {
+    const p = code.slice(0, 2).toLowerCase();
+    return ['sh', 'sz', 'bj', 'hk'].includes(p) ? p : 'us';
+  }
+
+  function normalizeTime(raw) {
+    const d = String(raw || '').replace(/\D/g, '');
+    if (d.length >= 14) return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)} ${d.slice(8,10)}:${d.slice(10,12)}:${d.slice(12,14)}`;
+    if (d.length === 12) return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)} ${d.slice(8,10)}:${d.slice(10,12)}`;
+    return String(raw || '');
+  }
+
+  function parseQuotes(text) {
+    const out = [];
+    for (const line of text.split('\n')) {
+      const m = /^v_([^=]+)="([\s\S]*)"\s*;?\s*$/.exec(line.trim());
+      if (!m) continue;
+      const code = normalize(m[1]) || m[1].toLowerCase();
+      const f = m[2].split('~');
+      if (f.length < 35) continue;
+      const market = marketOf(code);
+      const lot = market === 'sh' || market === 'sz' || market === 'bj';
+      const price = num(f[3]);
+      out.push({
+        code, market,
+        symbol: code.slice(2),
+        name: (f[1] || code.slice(2)).trim(),
+        price,
+        prevClose: num(f[4]),
+        open: num(f[5]),
+        high: num(f[33]),
+        low: num(f[34]),
+        change: num(f[31]),
+        changePct: num(f[32]),
+        volume: lot ? num(f[6]) * 100 : num(f[6]),
+        amount: lot ? num(f[37]) * 1e4 : num(f[37]),
+        currency: market === 'hk' ? 'HKD' : market === 'us' ? 'USD' : 'CNY',
+        time: normalizeTime(f[30]),
+      });
+    }
+    return out;
+  }
+
+  /* ---------------- 离线 mock（?mock=1） ---------------- */
+
+  const MOCK = /[?&]mock\b/.test(location.search);
+  if (/[?&]theme=dark\b/.test(location.search)) document.documentElement.setAttribute('data-theme', 'dark');
+  const MOCK_BASE = { sh000001: 3648.3, sh600519: 1355.9, sz300750: 268.4, hk00700: 384.0, usAAPL: 343.91 };
+  const MOCK_NAME = { sh000001: '上证指数', sh600519: '贵州茅台', sz300750: '宁德时代', hk00700: '腾讯控股', usAAPL: '苹果' };
+
+  function seedOf(text) {
+    let h = 2166136261;
+    for (let i = 0; i < text.length; i += 1) h = ((h ^ text.charCodeAt(i)) * 16777619) >>> 0;
+    return h;
+  }
+
+  function rng(seed) {
+    let s = seed || 1;
+    return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+  }
+
+  function mockQuote(code) {
+    const rand = rng(seedOf(code));
+    const base = MOCK_BASE[code] || 50 + rand() * 200;
+    const pct = Math.round((rand() - 0.42) * 700) / 100;
+    const price = base * (1 + pct / 100);
+    const market = marketOf(code);
+    return {
+      code, market,
+      symbol: code.slice(2),
+      name: MOCK_NAME[code] || code,
+      price,
+      prevClose: base,
+      open: base * (1 + (rand() - 0.5) * 0.006),
+      high: Math.max(price, base) * (1 + rand() * 0.006),
+      low: Math.min(price, base) * (1 - rand() * 0.006),
+      change: price - base,
+      changePct: pct,
+      volume: Math.round((0.4 + rand()) * 4.2e7),
+      amount: Math.round((0.4 + rand()) * 4.2e9),
+      currency: market === 'hk' ? 'HKD' : market === 'us' ? 'USD' : 'CNY',
+      time: new Date().toISOString().slice(0, 10) + ' ' + new Date().toTimeString().slice(0, 8),
+    };
+  }
+
+  function mockSeries(code) {
+    const rand = rng(seedOf(code) + 7);
+    const quote = state.quotes[code] || mockQuote(code);
+    const base = quote.prevClose;
+    const points = [];
+    let price = base * (1 + (rand() - 0.5) * 0.004);
+    let cumVolume = 0;
+    let sum = 0;
+    for (let i = 0; i < 241; i += 1) {
+      price += base * (rand() - 0.5) * 0.0016;
+      price = Math.max(base * 0.96, Math.min(base * 1.04, price));
+      const minuteVolume = Math.round((0.3 + rand()) * 1800) * 100;
+      cumVolume += minuteVolume;
+      sum += price;
+      const minutes = 9 * 60 + 30 + i;
+      const hour = Math.floor(minutes / 60) % 24;
+      const minute = minutes % 60;
+      points.push({
+        time: String(hour).padStart(2, '0') + ':' + String(minute).padStart(2, '0'),
+        price: Math.round(price * 100) / 100,
+        avg: Math.round((sum / (i + 1)) * 100) / 100,
+        volume: minuteVolume,
+      });
+    }
+    return {
+      code,
+      name: quote.name,
+      date: new Date().toISOString().slice(0, 10),
+      prevClose: base,
+      points,
+      market: marketOf(code),
+    };
+  }
+
+  async function fetchQuotes(codes) {
+    if (MOCK) return codes.map(mockQuote);
+    const res = await fetch('https://qt.gtimg.cn/q=' + codes.join(','), { cache: 'no-store' });
+    const buf = await res.arrayBuffer();
+    const text = new TextDecoder('gbk').decode(buf);
+    const list = parseQuotes(text);
+    if (list.length === 0) throw new Error('empty');
+    return list;
+  }
+
+  async function fetchMinute(code) {
+    if (MOCK) return mockSeries(code);
+    const market = marketOf(code);
+    const url = (market === 'us'
+      ? 'https://web.ifzq.gtimg.cn/appstock/app/UsMinute/query?code='
+      : 'https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=') + code;
+    const res = await fetch(url, { cache: 'no-store' });
+    const json = await res.json();
+    const node = json && json.data && json.data[code];
+    const rows = node && node.data && node.data.data;
+    if (!Array.isArray(rows) || rows.length === 0) throw new Error('暂无分时数据');
+
+    const lot = market === 'sh' || market === 'sz' || market === 'bj';
+    const points = [];
+    let prevVol = 0, sum = 0;
+    for (const raw of rows) {
+      if (typeof raw !== 'string') continue;
+      const parts = raw.trim().split(/\s+/);
+      if (parts.length < 3) continue;
+      const stamp = parts[0];
+      if (stamp.length < 4) continue;
+      const price = num(parts[1]);
+      if (price <= 0) continue;
+      const cumVol = num(parts[2]);
+      const cumAmt = num(parts[3]);
+      const volume = Math.max(0, cumVol - prevVol);
+      prevVol = cumVol;
+      const shares = lot ? cumVol * 100 : cumVol;
+      sum += price;
+      points.push({
+        time: stamp.slice(0, 2) + ':' + stamp.slice(2, 4),
+        price,
+        avg: cumAmt > 0 && shares > 0 ? cumAmt / shares : sum / points.length,
+        volume,
+      });
+    }
+    if (points.length === 0) throw new Error('暂无分时数据');
+
+    const quote = state.quotes[code];
+    const prevClose = quote && quote.prevClose > 0 ? quote.prevClose : points[0].price;
+    const rawDate = (node.data.date || '');
+    const date = /^\d{8}$/.test(rawDate)
+      ? rawDate.slice(0, 4) + '-' + rawDate.slice(4, 6) + '-' + rawDate.slice(6, 8)
+      : new Date().toISOString().slice(0, 10);
+
+    return { code, name: quote ? quote.name : code, date, prevClose, points, market };
+  }
+
+  /* ---------------- 图表 ---------------- */
+
+  const VB_W = 680, VB_H = 344, PAD_L = 6, PAD_R = 54;
+  const PLOT_W = VB_W - PAD_L - PAD_R;
+  const PRICE_TOP = 16, PRICE_BOTTOM = 216, PRICE_H = PRICE_BOTTOM - PRICE_TOP;
+  const VOL_TOP = 242, VOL_BOTTOM = 312, AXIS_Y = 330;
+  const FONT = '11px -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif';
+  const FONT_SMALL = '10px -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif';
+
+  function buildGeometry(series, mode) {
+    const pts = series.points;
+    const n = pts.length;
+    const base = series.prevClose > 0 ? series.prevClose : pts[0].price;
+
+    let maxDev = 0, maxVolume = 0;
+    for (const p of pts) {
+      maxDev = Math.max(maxDev, Math.abs(p.price - base));
+      if (p.avg > 0) maxDev = Math.max(maxDev, Math.abs(p.avg - base));
+      maxVolume = Math.max(maxVolume, p.volume);
+    }
+    if (maxDev <= 0) maxDev = Math.max(base * 0.004, 0.01);
+
+    const span = maxDev * 1.08;
+    const top = base + span, bottom = base - span;
+    const x = (i) => PAD_L + (n <= 1 ? 0 : (i / (n - 1)) * PLOT_W);
+    const y = (p) => PRICE_TOP + ((top - p) / (top - bottom)) * PRICE_H;
+
+    const line = pts.map((p, i) => (i === 0 ? 'M' : 'L') + x(i).toFixed(2) + ',' + y(p.price).toFixed(2)).join('');
+    const area = line + 'L' + x(n - 1).toFixed(2) + ',' + PRICE_BOTTOM + 'L' + x(0).toFixed(2) + ',' + PRICE_BOTTOM + 'Z';
+    const avg = pts.map((p, i) => (i === 0 ? 'M' : 'L') + x(i).toFixed(2) + ',' + y(p.avg).toFixed(2)).join('');
+
+    return {
+      base, top, bottom, maxDev, maxVolume, x, y,
+      barWidth: Math.max(1, (PLOT_W / Math.max(n, 1)) * (mode === 'bar' ? 0.62 : 0.66)),
+      linePath: line, areaPath: area, avgPath: avg,
+    };
+  }
+
+  function renderChart(series, mode) {
+    const g = buildGeometry(series, mode);
+    const pts = series.points;
+    const n = pts.length;
+    const last = pts[n - 1];
+    const t = toneHex(last.price - g.base);
+    const gid = 'grad-' + series.code;
+    const parts = [];
+
+    parts.push('<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop offset="0%" stop-color="' + t + '" stop-opacity="0.26"/>'
+      + '<stop offset="100%" stop-color="' + t + '" stop-opacity="0.02"/></linearGradient></defs>');
+
+    const ratios = [1, 0.5, 0, -0.5, -1];
+    for (const r of ratios) {
+      const price = g.base + g.maxDev * r * 1.08;
+      const yy = g.y(price);
+      const strong = r === 0;
+      const label = r === 0 ? '0.00%' : (r > 0 ? '+' : '') + (r * 1.08 * 100 * (g.maxDev / Math.max(g.base, 0.01))).toFixed(2) + '%';
+      parts.push('<line x1="' + PAD_L + '" x2="' + (PAD_L + PLOT_W) + '" y1="' + yy.toFixed(2) + '" y2="' + yy.toFixed(2) + '"'
+        + ' stroke="' + (strong ? 'var(--border)' : 'var(--grid)') + '" stroke-width="1"'
+        + (strong ? ' stroke-dasharray="4 4"' : '') + '/>');
+      parts.push('<text x="' + (VB_W - 4) + '" y="' + (yy + 3.5).toFixed(2) + '" text-anchor="end"'
+        + ' fill="' + (strong ? 'var(--subtext)' : 'var(--faint)') + '" style="font:' + FONT_SMALL + '">' + label + '</text>');
+    }
+
+    parts.push('<line x1="' + PAD_L + '" x2="' + (PAD_L + PLOT_W) + '" y1="' + VOL_BOTTOM + '" y2="' + VOL_BOTTOM + '" stroke="var(--grid)" stroke-width="1"/>');
+    parts.push('<line x1="' + PAD_L + '" x2="' + (PAD_L + PLOT_W) + '" y1="' + VOL_TOP + '" y2="' + VOL_TOP + '" stroke="var(--grid)" stroke-width="1" stroke-dasharray="3 4"/>');
+    parts.push('<text x="' + (VB_W - 4) + '" y="' + (VOL_TOP + 3.5) + '" text-anchor="end" fill="var(--faint)" style="font:' + FONT_SMALL + '">'
+      + (g.maxVolume > 0 ? fmtVolume(g.maxVolume, series.market) : '') + '</text>');
+
+    if (mode === 'line') {
+      parts.push('<path d="' + g.areaPath + '" fill="url(#' + gid + ')"/>');
+      parts.push('<path d="' + g.linePath + '" fill="none" stroke="' + t + '" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>');
+    } else {
+      const anchor = g.y(g.base);
+      pts.forEach((p, i) => {
+        const yy = g.y(p.price);
+        const top = Math.min(yy, anchor);
+        const h = Math.max(1, Math.abs(anchor - yy));
+        parts.push('<rect x="' + (g.x(i) - g.barWidth / 2).toFixed(2) + '" y="' + top.toFixed(2) + '" width="' + g.barWidth.toFixed(2)
+          + '" height="' + h.toFixed(2) + '" fill="' + toneHex(p.price - g.base) + '" opacity="0.85"/>');
+      });
+    }
+
+    parts.push('<path d="' + g.avgPath + '" fill="none" stroke="var(--faint)" stroke-width="1" stroke-dasharray="3 3" opacity="0.85"/>');
+
+    pts.forEach((p, i) => {
+      const prev = i === 0 ? g.base : pts[i - 1].price;
+      const h = g.maxVolume > 0 ? (p.volume / g.maxVolume) * (VOL_BOTTOM - VOL_TOP) : 0;
+      parts.push('<rect x="' + (g.x(i) - g.barWidth / 2).toFixed(2) + '" y="' + (VOL_BOTTOM - Math.max(h, 0.4)).toFixed(2)
+        + '" width="' + g.barWidth.toFixed(2) + '" height="' + Math.max(h, 0.4).toFixed(2)
+        + '" fill="' + toneHex(p.price - prev) + '" opacity="0.62"/>');
+    });
+
+    const labels = [
+      { x: PAD_L, text: pts[0].time, anchor: 'start' },
+      { x: PAD_L + PLOT_W / 2, text: pts[Math.floor((n - 1) / 2)].time, anchor: 'middle' },
+      { x: PAD_L + PLOT_W, text: pts[n - 1].time, anchor: 'end' },
+    ];
+    for (const l of labels) {
+      parts.push('<text x="' + l.x + '" y="' + AXIS_Y + '" text-anchor="' + l.anchor + '" fill="var(--faint)" style="font:' + FONT_SMALL + '">' + l.text + '</text>');
+    }
+
+    return '<svg viewBox="0 0 ' + VB_W + ' ' + VB_H + '" style="display:block;width:100%;height:auto" role="img">' + parts.join('') + '</svg>';
+  }
+
+  /* ---------------- 渲染 ---------------- */
+
+  function stat(k, v, color) {
+    return '<div class="stat"><div class="k">' + k + '</div><div class="v"'
+      + (color ? ' style="color:' + color + '"' : '') + '>' + v + '</div></div>';
+  }
+
+  function renderTrigger() {
+    const code = state.watchlist[state.rotating % Math.max(state.watchlist.length, 1)];
+    const q = code ? state.quotes[code] : undefined;
+    trigger.querySelector('.nm').textContent = q ? q.name : (code || '自选行情');
+    const pct = trigger.querySelector('.pct');
+    pct.textContent = q ? fmtPct(q.changePct) : '';
+    pct.style.color = q ? tone(q.changePct) : 'var(--faint)';
+    trigger.querySelector('.led').style.background = state.error ? 'var(--flat)' : (q ? tone(q.changePct) : 'var(--faint)');
+  }
+
+  function renderPanel() {
+    if (state.view === 'list') {
+      $('p-title').textContent = '自选行情';
+      $('p-head').querySelector('.p-back')?.remove();
+
+      let html = '<div class="p-add">'
+        + '<input id="add-input" placeholder="600519 / hk00700 / AAPL" />'
+        + '<button id="add-btn" type="button">添加</button></div>';
+
+      if (state.watchlist.length === 0) {
+        html += '<div style="padding:32px 16px;text-align:center;font-size:12px;color:var(--faint)">还没有自选标的，输入代码添加</div>';
+      } else {
+        for (const code of state.watchlist) {
+          const q = state.quotes[code];
+          const c = q ? tone(q.changePct) : 'var(--faint)';
+          html += '<div class="row" data-code="' + code + '">'
+            + '<div style="flex:1;min-width:0"><div class="name">' + (q ? q.name : code) + '</div>'
+            + '<div class="meta">' + marketLabel(q ? q.market : marketOf(code)) + ' · ' + (q ? q.symbol : code.slice(2)) + '</div></div>'
+            + '<div class="px"><div class="a" style="color:' + c + '">' + (q ? fmtPrice(q.price) : '--') + '</div>'
+            + '<div class="b" style="color:' + c + '">' + (q ? fmtChange(q.change) : '--') + '</div></div>'
+            + '<div class="badge" style="color:' + c + ';background:' + (q ? c.replace('var(--up)', 'rgba(224,72,61,.09)').replace('var(--down)', 'rgba(10,156,109,.09)').replace('var(--flat)', 'rgba(139,149,163,.09)') : 'transparent') + '">'
+            + (q ? fmtPct(q.changePct) : '--') + '</div>'
+            + '</div>';
+        }
+      }
+
+      slot.innerHTML = html;
+
+      const input = $('add-input');
+      const add = () => {
+        const code = normalize(input.value);
+        if (!code) { input.style.borderColor = 'var(--up)'; return; }
+        if (!state.watchlist.includes(code)) state.watchlist.push(code);
+        input.value = '';
+        renderPanel();
+        void refresh();
+      };
+      $('add-btn').addEventListener('click', add);
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') add(); });
+
+      slot.querySelectorAll('.row').forEach((row) => {
+        row.addEventListener('click', () => openDetail(row.dataset.code));
+      });
+      return;
+    }
+
+    // 详情视图
+    const q = state.quotes[state.selected];
+    const c = q ? tone(q.changePct) : 'var(--faint)';
+    $('p-title').textContent = '';
+    if (!$('p-head').querySelector('.p-back')) {
+      const back = document.createElement('button');
+      back.className = 'p-back';
+      back.type = 'button';
+      back.textContent = '‹ 返回';
+      back.addEventListener('click', () => { state.view = 'list'; state.series = null; renderPanel(); });
+      $('p-head').insertBefore(back, $('p-head').firstChild);
+    }
+
+    let html = '<div class="detail">'
+      + '<div class="d-head"><div class="l"><div class="nm">' + (q ? q.name : state.selected) + '</div>'
+      + '<div class="meta">' + (q ? marketLabel(q.market) + ' · ' + q.symbol + ' · ' + q.time : '') + '</div></div>'
+      + '<div class="r"><div class="price" style="color:' + c + '">' + (q ? fmtPrice(q.price) : '--') + '</div>'
+      + '<div class="chg" style="color:' + c + '">' + (q ? fmtChange(q.change) + '  ' + fmtPct(q.changePct) : '') + '</div></div></div>'
+      + '<div class="stats">'
+      + stat('今开', q ? fmtPrice(q.open) : '--')
+      + stat('最高', q ? fmtPrice(q.high) : '--', 'var(--up)')
+      + stat('最低', q ? fmtPrice(q.low) : '--', 'var(--down)')
+      + stat('昨收', q ? fmtPrice(q.prevClose) : '--')
+      + stat('成交量', q ? fmtVolume(q.volume, q.market) : '--')
+      + stat('成交额', q ? (q.currency === 'USD' ? '$' : q.currency === 'HKD' ? 'HK$' : '¥') + fmtAmount(q.amount) : '--')
+      + '</div>'
+      + '<div class="chart-card"><div class="chart-head"><span class="t">分时</span>'
+      + '<span class="lg">' + (state.series ? '均价 ' + fmtPrice(state.series.points[state.series.points.length - 1].avg) + ' · 昨收 ' + fmtPrice(state.series.prevClose) : '') + '</span>'
+      + '<div class="seg"><button type="button" data-mode="line" class="' + (state.mode === 'line' ? 'on' : '') + '">折线</button>'
+      + '<button type="button" data-mode="bar" class="' + (state.mode === 'bar' ? 'on' : '') + '">柱状</button></div></div>'
+      + '<div id="chart-area">'
+      + (state.series ? renderChart(state.series, state.mode) : '<div style="height:180px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--faint)">加载分时数据…</div>')
+      + '</div></div>'
+      + '<div class="rates"><span>刷新频率</span>'
+      + INTERVALS.map((ms) => '<button type="button" data-ms="' + ms + '" class="' + (state.intervalMs === ms ? 'on' : '') + '">' + ms / 1000 + 's</button>').join('')
+      + '</div></div>';
+
+    slot.innerHTML = html;
+
+    slot.querySelectorAll('[data-mode]').forEach((b) => {
+      b.addEventListener('click', () => { state.mode = b.dataset.mode; renderPanel(); });
+    });
+    slot.querySelectorAll('[data-ms]').forEach((b) => {
+      b.addEventListener('click', () => { state.intervalMs = Number(b.dataset.ms); renderPanel(); });
+    });
+  }
+
+  function normalize(raw) {
+    const s = String(raw || '').trim().replace(/\s+/g, '');
+    if (!s) return null;
+    let m = /^(sh|sz|bj|hk|us)([0-9A-Za-z._-]+)$/i.exec(s);
+    if (m) return m[1].toLowerCase() + m[2].toUpperCase();
+    if (/^\d{6}$/.test(s)) {
+      if ('69 5'.includes(s[0])) return 'sh' + s;
+      if ('48'.includes(s[0])) return 'bj' + s;
+      return 'sz' + s;
+    }
+    if (/^\d{1,5}$/.test(s)) return 'hk' + s.padStart(5, '0');
+    if (/^[A-Za-z][A-Za-z.\-]{0,9}$/.test(s)) return 'us' + s.toUpperCase();
+    return null;
+  }
+
+  async function openDetail(code) {
+    state.selected = code;
+    state.view = 'detail';
+    state.series = null;
+    renderPanel();
+    try {
+      state.series = await fetchMinute(code);
+      $('src').textContent = '已连接';
+    } catch (err) {
+      state.series = null;
+      $('src').textContent = '分时不可用';
+      const area = $('chart-area');
+      if (area) area.innerHTML = '<div style="height:180px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--up);padding:16px;text-align:center">'
+        + (err && err.message ? err.message : '分时数据获取失败') + '</div>';
+      return;
+    }
+    if (state.view === 'detail') renderPanel();
+  }
+
+  async function refresh() {
+    try {
+      const list = await fetchQuotes(state.watchlist);
+      for (const q of list) state.quotes[q.code] = q;
+      state.updatedAt = Date.now();
+      state.error = null;
+      $('src').textContent = '已连接';
+      $('p-led').style.background = 'var(--down)';
+      $('p-led').style.boxShadow = '0 0 0 3px rgba(10,156,109,.13)';
+    } catch (err) {
+      state.error = err;
+      $('src').textContent = '连接失败：' + (err && err.message ? err.message : String(err));
+      $('p-led').style.background = 'var(--flat)';
+      $('p-led').style.boxShadow = 'none';
+    }
+    $('p-clock').textContent = new Date().toTimeString().slice(0, 8);
+    renderTrigger();
+    if (!$('panel').hidden) renderPanel();
+  }
+
+  /* ---------------- 交互 ---------------- */
+
+  trigger.addEventListener('click', () => {
+    panel.hidden = !panel.hidden;
+    if (!panel.hidden) place();
+    if (!panel.hidden) renderPanel();
+  });
+  $('p-close').addEventListener('click', () => { panel.hidden = true; });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') panel.hidden = true; });
+
+  // 面板贴着侧栏按钮弹出
+  function place() {
+    const r = trigger.getBoundingClientRect();
+    if (r.width <= 0) return;
+    panel.style.left = Math.min(Math.max(8, r.right + 8), window.innerWidth - 200) + 'px';
+    panel.style.top = 'auto';
+    panel.style.bottom = Math.min(Math.max(8, window.innerHeight - r.bottom), window.innerHeight - 80) + 'px';
+  }
+
+  // 标题栏拖动
+  let drag = null;
+  $('p-head').addEventListener('pointerdown', (e) => {
+    if (e.target.closest('button')) return;
+    const rect = panel.getBoundingClientRect();
+    drag = { x: e.clientX, y: e.clientY, left: rect.left, top: rect.top };
+    $('p-head').setPointerCapture(e.pointerId);
+  });
+  $('p-head').addEventListener('pointermove', (e) => {
+    if (!drag) return;
+    const left = Math.min(Math.max(4, drag.left + (e.clientX - drag.x)), window.innerWidth - 120);
+    const top = Math.min(Math.max(4, drag.top + (e.clientY - drag.y)), window.innerHeight - 80);
+    panel.style.left = left + 'px';
+    panel.style.top = top + 'px';
+    panel.style.bottom = 'auto';
+  });
+  $('p-head').addEventListener('pointerup', () => { drag = null; });
+
+  // 轮播侧栏按钮
+  setInterval(() => {
+    state.rotating += 1;
+    renderTrigger();
+  }, 4500);
+
+  // 轮询
+  let timer = 0;
+  const loop = async () => {
+    await refresh();
+    timer = setTimeout(loop, state.intervalMs);
+  };
+  window.addEventListener('beforeunload', () => clearTimeout(timer));
+
+  renderTrigger();
+  place();
+  void loop();
+
+  // 支持 #code=sh600519 直接打开详情（便于截图与分享某个标的），#mode=bar 切柱状
+  const deep = /code=([A-Za-z0-9._-]+)/.exec(location.hash || '');
+  if (/mode=bar/.test(location.hash || '')) state.mode = 'bar';
+  if (deep) {
+    const code = normalize(deep[1]);
+    if (code) {
+      if (!state.watchlist.includes(code)) state.watchlist.unshift(code);
+      setTimeout(() => { void openDetail(code); }, 600);
+    }
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,78 @@
+{
+  "name": "dsh-stock-ticker",
+  "version": "0.1.0",
+  "description": "DSH Desktop 自选股行情插件：侧栏实时报价卡片，点击查看分时图与柱状图（A股 / 港股 / 美股）",
+  "type": "module",
+  "icon": "icon.svg",
+  "main": "lib/index.js",
+  "types": "lib/types/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/types/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "types": "./lib/types/client/index.d.ts",
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "icon.svg"
+  ],
+  "dsh": {
+    "engines": {
+      "dsh": ">=0.2.1-rc.3"
+    },
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-ui-renderer"
+      ],
+      "platform": "web"
+    },
+    "compatibility": {
+      "desktop": ">=2.0.0",
+      "runtime": ">=0.2.1-rc.3",
+      "capabilities": [
+        "web-client",
+        "host-route"
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && tsdown",
+    "prepare": "tsc -p tsconfig.build.json && tsdown",
+    "watch": "tsdown --watch",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": "^22.19.0 || >=24.0.0"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh": ">=0.2.1-rc.3",
+    "react": "^18.2.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.5",
+    "@deepseek-ai/dsh-client-locale": "^0.2.1-rc.3",
+    "@deepseek-ai/dsh-client-ui-renderer": "^0.2.1-rc.3",
+    "@deepseek-ai/dsh-client-ui-slots": "^0.2.1-rc.3",
+    "@deepseek-ai/dsh-host-webserver": "^0.2.1-rc.3",
+    "@types/node": "^22.20.0",
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "^18.3.5",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tsdown": "^0.22.2",
+    "typescript": "^5.7.2"
+  },
+  "license": "MIT"
+}

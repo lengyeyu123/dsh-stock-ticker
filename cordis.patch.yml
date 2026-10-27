@@ -1,0 +1,11 @@
+# dsh-stock-ticker bundle patch: 把插件行插入 web plugin roster。
+#
+# 这一行同时挂载两个半区：
+#   - host 半区  src/index.ts      → 注册 /api/dsh-stock/* 行情代理路由
+#   - browser 半区 src/client/     → 侧栏报价按钮 + 分时/柱状浮层面板
+#
+# 安装方式（在 dsh profile 里）：
+#   dsh plugin --profile <name> add link:<repo>/dsh-stock-ticker
+- insert:
+    - id: stock-ticker
+      name: dsh-stock-ticker
